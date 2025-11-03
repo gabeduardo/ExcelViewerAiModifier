@@ -1,9 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 from app.excel_utils import get_sheet_names, extract_sheet_data, write_excel
 from app.modifier import apply_rules_with_llm
 import io
+import json
 
 app = FastAPI()
 
@@ -21,7 +23,7 @@ async def upload_excel(file: UploadFile = File(...)):
     sheet_names = get_sheet_names(contents)
     return {"sheets": sheet_names}
 
-@app.post("/modify")
+@app.post("/export")
 async def modify_excel(file: UploadFile = File(...), sheet: str = Form(...)):
     contents = await file.read()
     data = extract_sheet_data(contents, sheet)
@@ -33,3 +35,13 @@ async def modify_excel(file: UploadFile = File(...), sheet: str = Form(...)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=modified.xlsx"}
     )
+
+
+@app.get("/sample-data")
+async def get_sample_data():
+    try:
+        with open("app/rules.json", "r", encoding="utf-8") as f:
+            rules = json.load(f)
+        return JSONResponse(content=rules)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)

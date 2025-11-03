@@ -10,16 +10,16 @@ const ExportButton: React.FC<Props> = ({ file, sheet }) => {
       return;
     }
 
-    console.log("🛠️ Exportando hoja:", sheet);
-    console.log("🛠️ Archivo:", file.name);
-    console.log("🛠️ Enviando a:", "http://localhost:8001/modify");
+    console.log(" Exportando hoja:", sheet);
+    console.log(" Archivo:", file.name);
+    console.log(" Enviando a:", "http://localhost:8001/export");
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("sheet", sheet);
 
     try {
-      const res = await fetch(`http://localhost:8001/modify`, {
+      const res = await fetch(`http://localhost:8001/export`, {
         method: "POST",
         body: formData,
       });
@@ -29,7 +29,7 @@ const ExportButton: React.FC<Props> = ({ file, sheet }) => {
       }
 
       const blob = await res.blob();
-      console.log("✅ Archivo modificado recibido, iniciando descarga");
+      console.log(" Archivo modificado recibido, iniciando descarga");
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -37,7 +37,7 @@ const ExportButton: React.FC<Props> = ({ file, sheet }) => {
       a.download = "modified.xlsx";
       a.click();
     } catch (error) {
-      console.error("❌ Error al modificar el archivo:", error);
+      console.error(" Error al modificar el archivo:", error);
     }
   };
 

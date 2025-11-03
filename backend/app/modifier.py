@@ -9,7 +9,7 @@ with open("app/rules.json", "r", encoding="utf-8") as f:
 
 def extract_json_block(text: str) -> str:
     """
-    Extrae el bloque JSON de una respuesta que puede estar envuelta en markdown (```json ... ```)
+    Extrae el bloque JSON de una respuesta ahorita cohere que puede estar envuelta en markdown (```json ... ```)
     """
     match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
     if match:
@@ -18,7 +18,7 @@ def extract_json_block(text: str) -> str:
 
 def apply_rules_with_llm(data: List[List[str]]) -> List[List[str]]:
     if not data:
-        print("🧠 No hay datos para modificar")
+        print(" No hay datos para modificar")
         return []
 
     # Serializar datos y reglas
@@ -31,26 +31,26 @@ def apply_rules_with_llm(data: List[List[str]]) -> List[List[str]]:
         "sheet_data": sheet_json
     }
 
-    # 🔍 Logs para debug
-    print("🧠 Prompt enviado al LLM:")
+    #  Logs para debug
+    print(" Prompt enviado al LLM:")
     print(json.dumps(prompt_input, indent=2)[:1000])
 
     try:
         response = chain.invoke(prompt_input)
-        print("🧠 Respuesta cruda del LLM:")
+        print(" Respuesta cruda del LLM:")
         print(response[:1000])
 
         json_block = extract_json_block(response)
         enriched = json.loads(json_block)
 
-        print(f"✅ Modificación completada con LLM: {len(enriched) - 1} filas procesadas")
+        print(f" Modificación completada con LLM: {len(enriched) - 1} filas procesadas")
         return enriched
 
     except json.JSONDecodeError as e:
-        print("❌ Error al parsear la respuesta del LLM como JSON")
-        print("🧠 Bloque extraído:", json_block[:1000])
+        print(" Error al parsear la respuesta del LLM como JSON")
+        print(" Bloque extraído:", json_block[:1000])
         raise Exception(f"Error parsing LLM response: {e}")
 
     except Exception as e:
-        print("❌ Error inesperado durante el enriquecimiento")
+        print(" Error inesperado durante el enriquecimiento")
         raise Exception(f"Error en apply_rules_with_llm: {e}")
