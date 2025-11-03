@@ -1,52 +1,56 @@
 import json
+import re
 from typing import List
+from app.model import chain
 
+# Cargar reglas desde el archivo
 with open("app/rules.json", "r", encoding="utf-8") as f:
     RULES_JSON = json.load(f)
 
+def extract_json_block(text: str) -> str:
+    """
+    Extrae el bloque JSON de una respuesta que puede estar envuelta en markdown (```json ... ```)
+    """
+    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1)
+    return text.strip()  # fallback si no hay delimitadores
+
 def apply_rules_with_llm(data: List[List[str]]) -> List[List[str]]:
     if not data:
-        print("🧠 No se recibieron datos para modificar")
+        print("🧠 No hay datos para modificar")
         return []
 
-    coberturas_por_tipo = RULES_JSON.get("coberturas_por_tipo", {})
-    columnas_a_agregar = RULES_JSON.get("reglas_asignacion", {}).get("columnas_a_agregar", [])
-    columna_referencia = RULES_JSON.get("reglas_asignacion", {}).get("mapeo_columnas", {}).get("columna_referencia", "TIPO DE UNIDAD")
+    # Serializar datos y reglas
+    sheet_json = json.dumps(data)
+    rules_json = json.dumps(RULES_JSON)
 
-    header = data[0]
-    print("🧠 Encabezado recibido:", header)
-    print("🧠 Columna de referencia esperada:", columna_referencia)
-    print("🧠 Columnas a agregar:", columnas_a_agregar)
+    # Construir input para el prompt
+    prompt_input = {
+        "rules_json": rules_json,
+        "sheet_data": sheet_json
+    }
+
+    # 🔍 Logs para debug
+    print("🧠 Prompt enviado al LLM:")
+    print(json.dumps(prompt_input, indent=2)[:1000])
 
     try:
-        ref_index = header.index(columna_referencia)
-    except ValueError:
-        print("❌ Columna de referencia no encontrada. Encabezado:", header)
-        raise Exception(f"Columna de referencia '{columna_referencia}' no encontrada")
+        response = chain.invoke(prompt_input)
+        print("🧠 Respuesta cruda del LLM:")
+        print(response[:1000])
 
-    try:
-        insert_index = header.index("NO.SERIE") + 1
-    except ValueError:
-        insert_index = len(header)
-        print("⚠️ Columna 'NO.SERIE' no encontrada, insertando al final")
+        json_block = extract_json_block(response)
+        enriched = json.loads(json_block)
 
-    new_header = header[:insert_index] + columnas_a_agregar + header[insert_index:]
-    new_rows = []
+        print(f"✅ Modificación completada con LLM: {len(enriched) - 1} filas procesadas")
+        return enriched
 
-    for row in data[1:]:
-        tipo_unidad = row[ref_index].upper().strip()
-        tipo_key = "TRACTOS" if tipo_unidad.startswith("TRACTO") else "REMOLQUES"
-        tipo_data = coberturas_por_tipo.get(tipo_key, {})
-        coberturas = tipo_data.get("coberturas", {})
+    except json.JSONDecodeError as e:
+        print("❌ Error al parsear la respuesta del LLM como JSON")
+        print("🧠 Bloque extraído:", json_block[:1000])
+        raise Exception(f"Error parsing LLM response: {e}")
 
-        nuevos_valores = []
-        for col in columnas_a_agregar:
-            cobertura, campo = col.rsplit(" ", 1)
-            valor = coberturas.get(cobertura, {}).get(campo, "")
-            nuevos_valores.append(valor)
-
-        new_row = row[:insert_index] + nuevos_valores + row[insert_index:]
-        new_rows.append(new_row)
-
-    print(f"✅ Modificación completada: {len(new_rows)} filas procesadas")
-    return [new_header] + new_rows
+    except Exception as e:
+        print("❌ Error inesperado durante el enriquecimiento")
+        raise Exception(f"Error en apply_rules_with_llm: {e}")
